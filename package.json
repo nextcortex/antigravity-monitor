@@ -3,7 +3,7 @@
   "displayName": "Antigravity Monitor",
   "description": "100% local & secure Antigravity quota monitor with dashboard, cache management, and auto-accept",
   "version": "2.0.0",
-  "publisher": "local-build",
+  "publisher": "nextcortex",
   "license": "MIT",
   "repository": {
     "type": "git",
