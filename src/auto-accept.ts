@@ -11,8 +11,8 @@ import * as os from 'os';
 import { logInfo, logDebug } from './logger';
 import { CDPAutoClicker } from './cdp-handler';
 
-// Antigravity IDE internal accept commands
-const ACCEPT_COMMANDS = [
+// Default Antigravity IDE internal accept commands
+const DEFAULT_ACCEPT_COMMANDS = [
     'antigravity.agent.acceptAgentStep',
     'antigravity.terminalCommand.accept',
     'antigravity.command.accept',
@@ -23,20 +23,26 @@ const ACCEPT_COMMANDS = [
     'antigravity.prioritized.terminalSuggestion.accept',
 ];
 
-// Settings keys that control auto-execution across Antigravity + Gemini
-const AUTO_SETTINGS: { key: string; onValue: any }[] = [
-    // Antigravity terminal execution policy
+// All known auto-execution settings with their "on" values
+export const ALL_AUTO_SETTINGS: { key: string; onValue: any }[] = [
     { key: 'antigravity.agent.terminal.autoExecutionPolicy', onValue: 'always' },
     { key: 'antigravity.agent.terminal.confirmCommands', onValue: false },
     { key: 'antigravity.agent.terminal.allowedCommands', onValue: ['*'] },
     { key: 'antigravity.terminal.autoRun', onValue: true },
     { key: 'cortex.agent.autoRun', onValue: true },
-    // Gemini Code Assist yolo mode
     { key: 'geminicodeassist.agentYoloMode', onValue: true },
+    { key: 'gemini.cli.yoloMode', onValue: true },
 ];
 
 // Gemini CLI settings file
 const GEMINI_CLI_SETTINGS = path.join(os.homedir(), '.gemini', 'settings.json');
+
+export interface AutoAcceptConfig {
+    commands: string[];
+    enabledSettings: string[];
+    acceptKeywords: string[];
+    rejectKeywords: string[];
+}
 
 export class AutoAcceptService {
     private _enabled = false;
@@ -46,9 +52,19 @@ export class AutoAcceptService {
     private _savedSettings = new Map<string, any>();
     private _previousCliApproval: string | undefined;
     private _cdp = new CDPAutoClicker();
+    private _commands: string[];
+    private _enabledSettings: string[];
 
-    constructor(interval: number = 800) {
+    constructor(interval: number = 800, config?: AutoAcceptConfig) {
         this._interval = Math.max(200, interval);
+        this._commands = config?.commands ?? [...DEFAULT_ACCEPT_COMMANDS];
+        this._enabledSettings = config?.enabledSettings ?? ALL_AUTO_SETTINGS.map(s => s.key);
+        if (config?.acceptKeywords || config?.rejectKeywords) {
+            this._cdp.updateKeywords(
+                config?.acceptKeywords ?? ['accept', 'run', 'retry', 'apply', 'execute', 'confirm', 'allow once', 'allow'],
+                config?.rejectKeywords ?? ['skip', 'reject', 'cancel', 'close', 'refine', 'always', 'agm:']
+            );
+        }
     }
 
     start(): void {
@@ -58,7 +74,7 @@ export class AutoAcceptService {
         this._timer = setInterval(() => this.tick(), this._interval);
         this.enableAutoSettings();
         this._cdp.start();
-        logInfo(`Auto-accept enabled (interval: ${this._interval}ms)`);
+        logInfo(`Auto-accept enabled (interval: ${this._interval}ms, ${this._commands.length} commands)`);
     }
 
     stop(): void {
@@ -95,6 +111,34 @@ export class AutoAcceptService {
         }
     }
 
+    /** Update the accept commands list at runtime */
+    updateCommands(cmds: string[]): void {
+        this._commands = [...cmds];
+        logInfo(`Auto-accept commands updated (${this._commands.length} commands)`);
+    }
+
+    /** Update which auto-execution settings are enabled */
+    updateEnabledSettings(keys: string[]): void {
+        this._enabledSettings = keys;
+        logInfo(`Auto-accept settings updated (${this._enabledSettings.length} enabled)`);
+    }
+
+    /** Update CDP accept/reject keywords */
+    updateKeywords(accept: string[], reject: string[]): void {
+        this._cdp.updateKeywords(accept, reject);
+        logInfo(`Auto-accept keywords updated (${accept.length} accept, ${reject.length} reject)`);
+    }
+
+    /** Get current configuration for sidebar display */
+    getConfig(): AutoAcceptConfig {
+        return {
+            commands: [...this._commands],
+            enabledSettings: [...this._enabledSettings],
+            acceptKeywords: this._cdp.getAcceptKeywords(),
+            rejectKeywords: this._cdp.getRejectKeywords(),
+        };
+    }
+
     dispose(): void {
         this.stop();
         this._cdp.dispose();
@@ -105,7 +149,13 @@ export class AutoAcceptService {
         const cfg = vscode.workspace.getConfiguration();
         let applied = 0;
 
-        for (const { key, onValue } of AUTO_SETTINGS) {
+        // Only apply settings that are in the enabled list
+        // Skip virtual keys (handled separately, e.g. gemini.cli.yoloMode → file-based)
+        const activeSettings = ALL_AUTO_SETTINGS.filter(
+            s => this._enabledSettings.includes(s.key) && !s.key.startsWith('gemini.cli.')
+        );
+
+        for (const { key, onValue } of activeSettings) {
             try {
                 const current = cfg.get(key);
                 this._savedSettings.set(key, current);
@@ -121,8 +171,10 @@ export class AutoAcceptService {
         if (applied > 0) {
             logInfo(`Applied ${applied} auto-execution settings`);
         }
-
-        this.enableGeminiCliYolo();
+        // Gemini CLI yolo: only if the virtual setting key is in the enabled list
+        if (this._enabledSettings.includes('gemini.cli.yoloMode')) {
+            this.enableGeminiCliYolo();
+        }
     }
 
     // Restore all settings to their pre-auto-accept values
@@ -130,9 +182,8 @@ export class AutoAcceptService {
         const cfg = vscode.workspace.getConfiguration();
         let restored = 0;
 
-        for (const { key } of AUTO_SETTINGS) {
+        for (const [key, saved] of this._savedSettings) {
             try {
-                const saved = this._savedSettings.get(key);
                 // Restore original value; undefined removes the setting
                 cfg.update(key, saved, vscode.ConfigurationTarget.Global);
                 restored++;
@@ -146,8 +197,10 @@ export class AutoAcceptService {
         if (restored > 0) {
             logInfo(`Restored ${restored} auto-execution settings`);
         }
-
-        this.restoreGeminiCliYolo();
+        // Only restore Gemini CLI if we actually enabled it
+        if (this._enabledSettings.includes('gemini.cli.yoloMode')) {
+            this.restoreGeminiCliYolo();
+        }
     }
 
     // Gemini CLI: toggle approval_mode in ~/.gemini/settings.json
@@ -199,7 +252,7 @@ export class AutoAcceptService {
         if (!this._enabled) return;
         this._tickCount++;
 
-        for (const cmd of ACCEPT_COMMANDS) {
+        for (const cmd of this._commands) {
             if (!this._enabled) return;
             try {
                 await vscode.commands.executeCommand(cmd);

@@ -8,6 +8,7 @@ import { QuotaSnapshot } from '../quota-fetcher';
 import { getGroupForModel, MODEL_GROUPS } from '../model-groups';
 import { StorageService } from '../storage';
 import { ConfigManager } from '../config';
+import { ALL_AUTO_SETTINGS } from '../auto-accept';
 
 export interface SidebarState {
     connectionStatus: string;
@@ -19,6 +20,7 @@ export interface SidebarState {
     tasks: TreeSection;
     contexts: TreeSection;
     autoAcceptEnabled: boolean;
+    autoAcceptConfig?: AutoAcceptConfigState;
     gaugeStyle: string;
     showUserInfoCard: boolean;
     showCreditsCard: boolean;
@@ -76,6 +78,15 @@ interface TreeFolder {
     size: string;
     expanded: boolean;
     files: { name: string; path: string }[];
+}
+
+export interface AutoAcceptConfigState {
+    commands: string[];
+    enabledSettings: string[];
+    allSettings: { key: string; label: string }[];
+    acceptKeywords: string[];
+    rejectKeywords: string[];
+    interval: number;
 }
 
 export type SidebarMessageHandler = (msg: any) => void;
@@ -150,6 +161,26 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 case 'showLogs':
                     await vscode.commands.executeCommand('agm.showLogs');
                     return;
+                case 'openAutoAcceptSource': {
+                    const extDir = this._extensionUri.fsPath;
+                    const srcFile = path.join(extDir, 'src', 'auto-accept.ts');
+                    try {
+                        await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(srcFile));
+                    } catch {
+                        vscode.window.showWarningMessage(`Could not open: ${srcFile}`);
+                    }
+                    return;
+                }
+                case 'openAutoAcceptResearch': {
+                    const extDir2 = this._extensionUri.fsPath;
+                    const researchFile = path.join(extDir2, 'AUTOCLICKER_RESEARCH.txt');
+                    try {
+                        await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(researchFile));
+                    } catch {
+                        vscode.window.showWarningMessage(`Could not open: ${researchFile}`);
+                    }
+                    return;
+                }
                 case 'refreshNow':
                     await vscode.commands.executeCommand('agm.refreshQuota');
                     return;

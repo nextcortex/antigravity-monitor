@@ -14,7 +14,7 @@ import { fetchQuota, QuotaSnapshot } from './quota-fetcher';
 import { CacheManager, formatSize } from './cache-manager';
 import { StorageService } from './storage';
 import { StatusBarManager } from './status-bar';
-import { AutoAcceptService } from './auto-accept';
+import { AutoAcceptService, ALL_AUTO_SETTINGS } from './auto-accept';
 import { SidebarProvider, SidebarState } from './sidebar/provider';
 import { getGroupForModel, getModelDisplayName, getModelAbbreviation, MODEL_GROUPS } from './model-groups';
 
@@ -32,7 +32,12 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
 
     const storageService = new StorageService(ctx.globalState);
     const cacheManager = new CacheManager();
-    const autoAccept = new AutoAcceptService(cfg['system.autoAcceptInterval']);
+    const autoAccept = new AutoAcceptService(cfg['system.autoAcceptInterval'], {
+        commands: cfg['system.autoAcceptCommands'],
+        enabledSettings: cfg['system.autoAcceptSettings'],
+        acceptKeywords: cfg['system.autoAcceptKeywords'],
+        rejectKeywords: cfg['system.autoAcceptRejectKeywords'],
+    });
     ctx.subscriptions.push({ dispose: () => autoAccept.dispose() });
 
     if (cfg['system.autoAccept']) autoAccept.start();
@@ -70,6 +75,39 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
                 await configManager.update('system.autoAccept', autoAccept.isRunning());
                 pushSidebarState();
                 break;
+            case 'updateAutoAcceptConfig': {
+                const c = msg.config;
+                if (c) {
+                    if (c.commands) {
+                        autoAccept.updateCommands(c.commands);
+                        await configManager.update('system.autoAcceptCommands', c.commands);
+                    }
+                    if (c.enabledSettings) {
+                        autoAccept.updateEnabledSettings(c.enabledSettings);
+                        await configManager.update('system.autoAcceptSettings', c.enabledSettings);
+                    }
+                    if (c.acceptKeywords) {
+                        await configManager.update('system.autoAcceptKeywords', c.acceptKeywords);
+                    }
+                    if (c.rejectKeywords) {
+                        await configManager.update('system.autoAcceptRejectKeywords', c.rejectKeywords);
+                    }
+                    if (c.acceptKeywords || c.rejectKeywords) {
+                        const kw = autoAccept.getConfig();
+                        autoAccept.updateKeywords(
+                            c.acceptKeywords ?? kw.acceptKeywords,
+                            c.rejectKeywords ?? kw.rejectKeywords
+                        );
+                    }
+                    if (typeof c.interval === 'number') {
+                        autoAccept.updateInterval(c.interval);
+                        await configManager.update('system.autoAcceptInterval', c.interval);
+                    }
+                    vscode.window.showInformationMessage('✅ Auto-accept config saved');
+                    pushSidebarState();
+                }
+                break;
+            }
             case 'toggleTasks':
                 tasksExpanded = !tasksExpanded;
                 pushSidebarState();
@@ -363,6 +401,11 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
             tasks,
             contexts,
             autoAcceptEnabled: autoAccept.isRunning(),
+            autoAcceptConfig: {
+                ...autoAccept.getConfig(),
+                allSettings: ALL_AUTO_SETTINGS.map(s => ({ key: s.key, label: s.key.split('.').pop() || s.key })),
+                interval: configManager.get('system.autoAcceptInterval', 800),
+            },
             gaugeStyle: cfg['dashboard.gaugeStyle'],
             showUserInfoCard: cfg['dashboard.showUserInfoCard'],
             showCreditsCard: cfg['dashboard.showCreditsCard'],
@@ -551,6 +594,9 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
                 const newCfg = configManager.getConfig();
                 setDebugMode(newCfg['system.debugMode']);
                 autoAccept.updateInterval(newCfg['system.autoAcceptInterval']);
+                autoAccept.updateCommands(newCfg['system.autoAcceptCommands']);
+                autoAccept.updateEnabledSettings(newCfg['system.autoAcceptSettings']);
+                autoAccept.updateKeywords(newCfg['system.autoAcceptKeywords'], newCfg['system.autoAcceptRejectKeywords']);
 
                 if (newCfg['system.autoAccept'] !== autoAccept.isRunning()) {
                     if (newCfg['system.autoAccept']) autoAccept.start();

@@ -15,25 +15,29 @@ import { spawn, ChildProcess } from 'child_process';
 import * as http from 'http';
 import * as path from 'path';
 import * as os from 'os';
+import * as fs from 'fs';
 import WebSocket from 'ws';
 import { logInfo, logDebug, logWarn } from './logger';
 
 // ── Browser script injected via CDP (macOS/Linux) ────────────────────────────
 
-const BROWSER_SCRIPT = `(function() {
+const DEFAULT_ACCEPT_KW = ['accept', 'run', 'retry', 'apply', 'execute', 'confirm', 'allow once', 'allow'];
+const DEFAULT_REJECT_KW = ['skip', 'reject', 'cancel', 'close', 'refine', 'always', 'agm:'];
+
+function buildBrowserScript(acceptKw: string[], rejectKw: string[]): string {
+    const acceptJson = JSON.stringify(acceptKw);
+    const rejectJson = JSON.stringify(rejectKw);
+    return `(function() {
     if (typeof window === 'undefined') return;
-    if (window.__agmAutoAcceptTargets) return;
+    // Always overwrite to pick up keyword changes
+    var accept = ${acceptJson};
+    var reject = ${rejectJson};
 
     function isAcceptButton(el) {
         var text = (el.textContent || '').trim().toLowerCase();
         if (text.length === 0 || text.length > 50) return false;
-
-        var accept = ['accept', 'run', 'retry', 'apply', 'execute', 'confirm', 'allow once', 'allow'];
-        var reject = ['skip', 'reject', 'cancel', 'close', 'refine', 'always', 'agm:'];
-
         if (reject.some(function(r) { return text.includes(r); })) return false;
         if (!accept.some(function(p) { return text.includes(p); })) return false;
-
         var style = window.getComputedStyle(el);
         var rect = el.getBoundingClientRect();
         return style.display !== 'none'
@@ -79,12 +83,16 @@ const BROWSER_SCRIPT = `(function() {
         return targets;
     };
 })();`;
+}
 
 // ── Unified auto-clicker ─────────────────────────────────────────────────────
 
 export class CDPAutoClicker {
     private _running = false;
     private _totalClicks = 0;
+    private _acceptKeywords: string[] = [...DEFAULT_ACCEPT_KW];
+    private _rejectKeywords: string[] = [...DEFAULT_REJECT_KW];
+    private _browserScript: string = buildBrowserScript(DEFAULT_ACCEPT_KW, DEFAULT_REJECT_KW);
 
     // UIA (Windows)
     private _uiaWorker: ChildProcess | undefined;
@@ -98,12 +106,36 @@ export class CDPAutoClicker {
     private static readonly CDP_BASE_PORT = 9000;
     private static readonly CDP_RANGE = 4;
 
+    /** Update accept/reject keywords and regenerate browser script */
+    updateKeywords(accept: string[], reject: string[]): void {
+        this._acceptKeywords = [...accept];
+        this._rejectKeywords = [...reject];
+        this._browserScript = buildBrowserScript(this._acceptKeywords, this._rejectKeywords);
+        // Re-inject into all active CDP connections
+        if (this._running) {
+            for (const [id, conn] of this._cdpConnections) {
+                if (conn.injected) {
+                    this.cdpEvaluate(id, this._browserScript).catch(() => { });
+                }
+            }
+        }
+        logInfo(`CDP keywords updated (${this._acceptKeywords.length} accept, ${this._rejectKeywords.length} reject)`);
+        // Write config for UIA worker on Windows
+        if (os.platform() === 'win32') {
+            this.writeUiaConfig();
+        }
+    }
+
+    getAcceptKeywords(): string[] { return [...this._acceptKeywords]; }
+    getRejectKeywords(): string[] { return [...this._rejectKeywords]; }
+
     async start(): Promise<void> {
         if (this._running) return;
         this._running = true;
         this._totalClicks = 0;
 
         if (os.platform() === 'win32') {
+            this.writeUiaConfig(); // Write config BEFORE spawning worker
             this.startUIA();
         } else {
             await this.startCDP();
@@ -126,6 +158,20 @@ export class CDPAutoClicker {
     isRunning(): boolean { return this._running; }
 
     dispose(): void { this.stop(); }
+
+    /** Write UIA keyword config so PowerShell worker can read it */
+    private writeUiaConfig(): void {
+        try {
+            const cfgPath = path.join(os.tmpdir(), 'agm-uia-config.json');
+            // Convert simple keywords into regex patterns for UIA
+            const acceptPatterns = this._acceptKeywords.map(kw => `^${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+            const skipPatterns = this._rejectKeywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            fs.writeFileSync(cfgPath, JSON.stringify({ acceptPatterns, skipPatterns }, null, 2), 'utf8');
+            logDebug(`UIA config written to ${cfgPath}`);
+        } catch {
+            // Non-critical — UIA will use defaults
+        }
+    }
 
     // ── Windows UIA ──────────────────────────────────────────────────────────
 
@@ -218,7 +264,7 @@ export class CDPAutoClicker {
                     if (!this._cdpConnections.has(id)) {
                         const ok = await this.cdpConnect(id, page.webSocketDebuggerUrl);
                         if (ok) {
-                            await this.cdpEvaluate(id, BROWSER_SCRIPT);
+                            await this.cdpEvaluate(id, this._browserScript);
                             const c = this._cdpConnections.get(id);
                             if (c) c.injected = true;
                             found = true;

@@ -305,6 +305,72 @@
             "minimum": 200,
             "maximum": 5000,
             "description": "Auto-accept check interval in ms"
+          },
+          "agm.system.autoAcceptCommands": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "antigravity.agent.acceptAgentStep",
+              "antigravity.terminalCommand.accept",
+              "antigravity.command.accept",
+              "antigravity.acceptCompletion",
+              "antigravity.prioritized.agentAcceptAllInFile",
+              "antigravity.prioritized.agentAcceptFocusedHunk",
+              "antigravity.prioritized.supercompleteAccept",
+              "antigravity.prioritized.terminalSuggestion.accept"
+            ],
+            "description": "VS Code commands to fire each auto-accept tick"
+          },
+          "agm.system.autoAcceptSettings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "antigravity.agent.terminal.autoExecutionPolicy",
+              "antigravity.agent.terminal.confirmCommands",
+              "antigravity.agent.terminal.allowedCommands",
+              "antigravity.terminal.autoRun",
+              "cortex.agent.autoRun",
+              "geminicodeassist.agentYoloMode",
+              "gemini.cli.yoloMode"
+            ],
+            "description": "Setting keys to auto-enable when auto-accept is ON"
+          },
+          "agm.system.autoAcceptKeywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "accept",
+              "run",
+              "retry",
+              "apply",
+              "execute",
+              "confirm",
+              "allow once",
+              "allow"
+            ],
+            "description": "CDP button text keywords to auto-click (accept list)"
+          },
+          "agm.system.autoAcceptRejectKeywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "skip",
+              "reject",
+              "cancel",
+              "close",
+              "refine",
+              "always",
+              "agm:"
+            ],
+            "description": "CDP button text keywords to never auto-click (reject list)"
           }
         }
       }

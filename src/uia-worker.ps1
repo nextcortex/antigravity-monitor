@@ -9,7 +9,8 @@ Add-Type -AssemblyName UIAutomationTypes
 $ErrorActionPreference = 'SilentlyContinue'
 
 # Button text patterns to click (case-insensitive, start-anchored)
-$AcceptPatterns = @(
+# Defaults — can be overridden via %TEMP%\agm-uia-config.json
+$DefaultAcceptPatterns = @(
     '^Accept',
     '^Allow Once',
     '^Always Allow',
@@ -20,15 +21,35 @@ $AcceptPatterns = @(
     '^Run command',
     '^Execute'
 )
-$AcceptRegex = ($AcceptPatterns -join '|')
 
-# Button text patterns to NEVER click
-$SkipPatterns = @(
+# Button text patterns to NEVER click (defaults)
+$DefaultSkipPatterns = @(
     'always run', 'reject', 'cancel', 'skip', 'refine', 'running',
     'run and debug', 'run python', 'run test', 'run file', 'run all',
     'run without', '\.py', '\.md', '\.json', 'git', 'synchronize',
     'checkout', 'auto-accept'
 )
+
+# Try loading from config file (written by extension)
+$ConfigPath = Join-Path $env:TEMP 'agm-uia-config.json'
+$AcceptPatterns = $DefaultAcceptPatterns
+$SkipPatterns = $DefaultSkipPatterns
+
+if (Test-Path $ConfigPath) {
+    try {
+        $cfg = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+        if ($cfg.acceptPatterns -and $cfg.acceptPatterns.Count -gt 0) {
+            $AcceptPatterns = $cfg.acceptPatterns
+        }
+        if ($cfg.skipPatterns -and $cfg.skipPatterns.Count -gt 0) {
+            $SkipPatterns = $cfg.skipPatterns
+        }
+    } catch {
+        # Config file corrupt — use defaults
+    }
+}
+
+$AcceptRegex = ($AcceptPatterns -join '|')
 $SkipRegex = ($SkipPatterns -join '|')
 
 $PollMs = 300

@@ -25,6 +25,10 @@ export interface AgmConfig {
     'system.debugMode': boolean;
     'system.autoAccept': boolean;
     'system.autoAcceptInterval': number;
+    'system.autoAcceptCommands': string[];
+    'system.autoAcceptSettings': string[];
+    'system.autoAcceptKeywords': string[];
+    'system.autoAcceptRejectKeywords': string[];
 }
 
 const MIN_REFRESH = 30;
@@ -72,6 +76,31 @@ export class ConfigManager {
             'system.debugMode': this.get('system.debugMode', false),
             'system.autoAccept': this.get('system.autoAccept', false),
             'system.autoAcceptInterval': this.get('system.autoAcceptInterval', 800),
+            'system.autoAcceptCommands': this.get('system.autoAcceptCommands', [
+                'antigravity.agent.acceptAgentStep',
+                'antigravity.terminalCommand.accept',
+                'antigravity.command.accept',
+                'antigravity.acceptCompletion',
+                'antigravity.prioritized.agentAcceptAllInFile',
+                'antigravity.prioritized.agentAcceptFocusedHunk',
+                'antigravity.prioritized.supercompleteAccept',
+                'antigravity.prioritized.terminalSuggestion.accept',
+            ]),
+            'system.autoAcceptSettings': this.get('system.autoAcceptSettings', [
+                'antigravity.agent.terminal.autoExecutionPolicy',
+                'antigravity.agent.terminal.confirmCommands',
+                'antigravity.agent.terminal.allowedCommands',
+                'antigravity.terminal.autoRun',
+                'cortex.agent.autoRun',
+                'geminicodeassist.agentYoloMode',
+                'gemini.cli.yoloMode',
+            ]),
+            'system.autoAcceptKeywords': this.get('system.autoAcceptKeywords', [
+                'accept', 'run', 'retry', 'apply', 'execute', 'confirm', 'allow once', 'allow',
+            ]),
+            'system.autoAcceptRejectKeywords': this.get('system.autoAcceptRejectKeywords', [
+                'skip', 'reject', 'cancel', 'close', 'refine', 'always', 'agm:',
+            ]),
         };
     }
 }
