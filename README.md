@@ -1,16 +1,25 @@
 # Antigravity Monitor
 
-![Version](https://img.shields.io/badge/version-2.0.0-0078d4?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-43a047?style=flat-square)
-![Platform](https://img.shields.io/badge/platform-Windows%20·%20macOS%20·%20Linux-8957e5?style=flat-square)
-![Engine](https://img.shields.io/badge/engine-vscode%20≥%201.90-007acc?style=flat-square)
-![Telemetry](https://img.shields.io/badge/telemetry-none-e53935?style=flat-square)
+<p align="center">
+  <img src="https://img.shields.io/badge/version-2.0.0-0078d4?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/license-MIT-43a047?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/platform-Windows%20·%20macOS%20·%20Linux-8957e5?style=flat-square" alt="Platform">
+  <img src="https://img.shields.io/badge/engine-vscode%20≥%201.90-007acc?style=flat-square" alt="Engine">
+  <img src="https://img.shields.io/badge/telemetry-none-e53935?style=flat-square" alt="Telemetry">
+</p>
+
+<p align="center">
+  <a href="https://nextcortex.github.io/"><img src="https://img.shields.io/badge/🌐_Website-nextcortex.github.io-blue?style=for-the-badge" alt="Website"></a>
+  <a href="https://nextcortex.github.io/donate.html"><img src="https://img.shields.io/badge/💖_Donate-Support_NextCortex-ff69b4?style=for-the-badge" alt="Donate"></a>
+</p>
 
 **100% local & secure** quota monitor for Antigravity IDE with real-time dashboard, usage analytics, cache management, and intelligent auto-accept.
 
 > **Zero network calls. Zero telemetry. Everything stays on your machine.**
 
-![Antigravity Monitor](https://raw.githubusercontent.com/nextcortex/antigravity-monitor/main/assets/nextcortex_antigravity-monitor.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/nextcortex/antigravity-monitor/main/assets/nextcortex_antigravity-monitor.png" alt="Antigravity Monitor">
+</p>
 
 ---
 
@@ -81,7 +90,7 @@ Three-layer system for fully hands-free agent operation:
 ### From Command Line
 
 ```bash
-antigravity --install-extension antigravity-monitor-2.0.0.vsix --force
+antigravity --install-extension nextcortex-antigravity-monitor-*.vsix --force
 ```
 
 ### Build from Source
@@ -232,3 +241,9 @@ This project is **not affiliated with, endorsed by, or associated with Google or
 ## 📄 License
 
 This project is licensed under the MIT License. See `LICENSE` for details.
+
+---
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/nextcortex/antigravity-monitor/main/assets/icon.png" alt="Antigravity Monitor Icon" width="128">
+</p>
