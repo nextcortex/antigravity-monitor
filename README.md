@@ -85,7 +85,7 @@ antigravity --install-extension antigravity-monitor-2.0.0.vsix --force
 ### Build from Source
 
 ```bash
-git clone <this repository URL>
+git clone https://github.com/nextcortex/antigravity-monitor.git
 cd antigravity-monitor
 npm install
 npm run build
