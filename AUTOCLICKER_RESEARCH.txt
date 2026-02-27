@@ -1,0 +1,236 @@
+AUTO-CLICKER RESEARCH & IMPLEMENTATION NOTES
+==============================================
+
+This document summarizes all approaches tested to achieve fully automated
+command approval in Antigravity IDE (bypassing the "Run command?" dialog).
+
+
+1. VS CODE COMMANDS (Layer 1 — Implemented)
+-------------------------------------------
+Approach: Use VS Code's built-in command API to programmatically accept
+agent actions. 8 commands are fired on a polling interval (~800ms):
+
+  - gemini.action.acceptAgentCommand
+  - gemini.action.acceptLastAgentStep  
+  - gemini.action.acceptTerminalCommand
+  - gemini.review.accept
+  - gemini.inline-completion.accept
+  - gemini.inline-completion.acceptAll
+  - gemini.action.confirmHumanInterventionAgentPanel
+  - gemini.acceptAllEdits
+
+Result: PARTIALLY WORKS. Catches most approval prompts but NOT the modal
+"Run command?" dialog, which is rendered in the Electron UI layer — not
+accessible via VS Code commands.
+
+
+2. SETTINGS / CONFIGURATION (Layer 2 — Implemented)
+----------------------------------------------------
+Approach: Configure Antigravity's built-in settings to auto-approve
+without user intervention:
+
+  - gemini.agentReviewPolicy = "auto-approve"
+  - gemini.codeExecution.autoExecute = true
+  - terminal.integrated.autoExecute = true
+  - gemini.yoloMode = true (undocumented, enables full auto-execution)
+
+Result: PARTIALLY WORKS. Reduces the number of approval dialogs but
+does NOT eliminate them completely. Some actions still trigger modal
+confirmation dialogs regardless of settings.
+
+
+3. KEYBOARD SIMULATION (Tested & Abandoned)
+--------------------------------------------
+Approach: Send keyboard events (Enter, Space) to auto-dismiss dialogs.
+
+  - Tried: vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup')
+           followed by keyboard simulation
+  - Tried: Sending synthetic KeyboardEvents via webview injection
+
+Result: FAILED. VS Code's security model prevents synthetic keyboard 
+events from reaching Electron dialog buttons. The events are consumed
+by the editor layer before reaching the dialog UI.
+
+
+4. ELECTRON DIALOG INTERCEPTION (Tested & Abandoned)
+------------------------------------------------------
+Approach: Intercept Electron's dialog module to auto-respond to dialogs.
+
+  - Tried: require('electron').dialog monkey-patching
+  - Tried: BrowserWindow.webContents.executeJavaScript()
+
+Result: FAILED. Extensions run in the Extension Host process, which is
+sandboxed and does NOT have access to the Electron main process or
+BrowserWindow APIs. There is no way to access dialog modules from an
+extension.
+
+
+5. CDP — CHROME DEVTOOLS PROTOCOL (Layer 3 — Implemented for macOS/Linux)
+--------------------------------------------------------------------------
+Approach: Connect to Antigravity's renderer process via Chrome DevTools
+Protocol WebSocket. Inject JavaScript to find Accept/Run buttons and
+dispatch real mouse click events.
+
+Requirements: Antigravity must be launched with --remote-debugging-port=9000
+
+Implementation:
+  a) Scan ports 9000-9009 for CDP endpoints
+  b) GET /json from the debug server to discover pages
+  c) Connect via WebSocket to the page
+  d) Use Runtime.evaluate to find buttons matching selectors:
+     - '.monaco-button[title*="Run"]'
+     - '.monaco-button[title*="Accept"]'  
+     - Button elements containing "Run"/"Accept" text
+  e) Use Input.dispatchMouseEvent to simulate real clicks
+  f) Poll every 800ms
+
+Result: WORKS on macOS/Linux when launched with the flag. The CDP approach
+has real mouse events that bypass the security model. However, it requires
+the user to launch Antigravity with a specific flag, which is not ideal
+for user experience.
+
+
+6. UIA — WINDOWS UI AUTOMATION (Layer 3 — Implemented for Windows)
+-------------------------------------------------------------------
+Approach: Use Windows UI Automation framework via PowerShell to find and
+click buttons in the Antigravity window. This operates at the OS level,
+outside the Electron sandbox.
+
+Implementation (uia-worker.ps1):
+  a) Load System.Windows.Automation assembly
+  b) Find the Antigravity window by process name
+  c) Use AutomationElement.FindAll() to search for button elements
+  d) Filter buttons by Name property containing "Run" or "Accept"
+  e) Use InvokePattern.Invoke() to click the button
+  f) Run in a continuous loop with 800ms intervals
+  g) Spawned as a background PowerShell process from Node.js
+
+Result: WORKS on Windows — no additional setup required. UIA operates
+at the OS accessibility layer, which has full access to UI elements
+regardless of Electron's security model. This is the most robust
+solution on Windows.
+
+Why UIA over CDP on Windows:
+  - No launch flags required — works out of the box
+  - No WebSocket connections to manage
+  - Native OS-level access to UI elements
+  - More reliable — doesn't depend on debug port availability
+  - Works even when the window is not in focus
+
+
+7. ACCESSIBILITY API / AppleScript (Considered but not implemented)
+--------------------------------------------------------------------
+Approach: Use macOS Accessibility API or AppleScript to find and click
+buttons, similar to UIA on Windows.
+
+Result: NOT IMPLEMENTED. Requires user to grant Accessibility permissions
+in System Preferences, which is a significant UX barrier. CDP was chosen
+instead as it requires a less invasive setup (just a launch flag).
+
+
+FINAL ARCHITECTURE (3-Layer System)
+=====================================
+
+Layer 1: VS Code Commands
+  → Catches ~70% of approval prompts
+  → Works on all platforms
+  → No setup required
+
+Layer 2: Settings Configuration  
+  → Reduces remaining prompts by ~20%
+  → Persistent across sessions
+  → Applied once on first activation
+
+Layer 3: Native Auto-Clicker
+  → Windows: UIA PowerShell worker (no setup)
+  → macOS/Linux: CDP WebSocket (requires --remote-debugging-port=9000)
+  → Catches the final ~10% of modal dialogs
+  → Most robust — operates outside the extension sandbox
+
+
+FILES CREATED / MODIFIED
+=========================
+
+Core auto-clicker files:
+
+  src/auto-accept.ts
+    Main service class (AutoAcceptService). Manages the polling loop that
+    fires VS Code commands every N ms. Handles start/stop/toggle/dispose.
+    Integrates with CDPAutoClicker for Layer 3.
+
+  src/cdp-handler.ts
+    Unified CDPAutoClicker class. On Windows, spawns the PowerShell UIA
+    worker. On macOS/Linux, connects via CDP WebSocket to find and click
+    Accept/Run buttons. Contains the browser injection script and CDP
+    mouse event dispatch logic.
+
+  src/uia-worker.ps1
+    PowerShell script spawned as a background process on Windows.
+    Uses System.Windows.Automation to find Antigravity's window,
+    locate Accept/Run buttons, and invoke clicks via InvokePattern.
+
+Configuration & build files:
+
+  src/config.ts
+    Added 'system.autoAccept' (boolean) and 'system.autoAcceptInterval'
+    (number, min 200ms) to the config schema. These persist the
+    auto-accept state across sessions.
+
+  package.json
+    Added agm.system.autoAccept and agm.system.autoAcceptInterval
+    to the contributes.configuration section. Added the
+    agm.toggleAutoAccept command and Ctrl+Shift+A keybinding.
+
+  esbuild.js
+    Modified to copy uia-worker.ps1 into dist/ during build, so the
+    PowerShell script is available at runtime.
+
+Integration files:
+
+  src/extension.ts
+    Creates AutoAcceptService on activation. Handles the
+    toggleAutoAccept webview message and command. Passes auto-accept
+    state to the sidebar. Listens for config changes to sync state.
+
+  src/sidebar/provider.ts
+    Added autoAcceptEnabled to SidebarState interface.
+
+  src/sidebar/webview.js
+    Added the toggle switch UI for auto-accept in the sidebar.
+    Sends 'toggleAutoAccept' message to the extension host.
+
+  src/sidebar/webview.css
+    Styles for the auto-accept toggle switch (.agm-toggle, 
+    .agm-toggle-switch, .agm-toggle-label).
+
+Build output:
+
+  dist/extension.js       — compiled extension (includes auto-accept)
+  dist/uia-worker.ps1     — copied from src/ by esbuild.js
+
+External files modified (Antigravity user settings):
+
+  %APPDATA%\Antigravity\User\settings.json
+    The following keys are set by the extension or manually to enable
+    full auto-approval:
+
+    "agm.system.autoAccept": true
+      Our extension's own setting — enables the auto-accept service.
+
+    "geminicodeassist.agentYoloMode": true
+      Gemini's undocumented "yolo mode" — skips most confirmation dialogs.
+
+    "antigravity.agent.terminal.autoExecutionPolicy": "always"
+      Auto-executes terminal commands without asking.
+
+    "antigravity.agent.terminal.confirmCommands": false
+      Disables the "confirm before running" prompt for terminal commands.
+
+    "antigravity.agent.terminal.allowedCommands": ["*"]
+      Allows ALL commands to run without whitelisting.
+
+    "antigravity.terminal.autoRun": true
+      Auto-runs terminal commands from the agent.
+
+    "cortex.agent.autoRun": true
+      Auto-runs Cortex agent actions.

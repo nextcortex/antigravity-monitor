@@ -1,0 +1,329 @@
+{
+  "name": "antigravity-monitor",
+  "displayName": "Antigravity Monitor",
+  "description": "100% local & secure Antigravity quota monitor with dashboard, cache management, and auto-accept",
+  "version": "2.0.0",
+  "publisher": "local-build",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "homepage": "",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "icon": "assets/icon.png",
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "Visualization"
+  ],
+  "keywords": [
+    "antigravity",
+    "gemini",
+    "quota",
+    "monitor",
+    "auto-accept",
+    "dashboard"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agm-sidebar",
+          "title": "Antigravity Monitor",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "agm-sidebar": [
+        {
+          "type": "webview",
+          "id": "agm.sidebar",
+          "name": "Monitor",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "agm.openPanel",
+        "title": "Antigravity Monitor: Open Panel"
+      },
+      {
+        "command": "agm.refreshQuota",
+        "title": "Antigravity Monitor: Refresh Quota",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "agm.showCacheSize",
+        "title": "Antigravity Monitor: Show Cache Size"
+      },
+      {
+        "command": "agm.cleanCache",
+        "title": "Antigravity Monitor: Clean Cache",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "agm.openSettings",
+        "title": "Antigravity Monitor: Open Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "agm.restartLanguageServer",
+        "title": "Antigravity Monitor: Restart Agent Service",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "agm.resetStatus",
+        "title": "Antigravity Monitor: Reset Status",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "agm.runDiagnostics",
+        "title": "Antigravity Monitor: Run Diagnostics",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "agm.showLogs",
+        "title": "Antigravity Monitor: Show Logs",
+        "icon": "$(output)"
+      },
+      {
+        "command": "agm.toggleAutoAccept",
+        "title": "Antigravity Monitor: Toggle Auto-Accept",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "agm.showQuickPick",
+        "title": "Antigravity Monitor: Show Quota Details",
+        "icon": "$(rocket)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "agm.showQuickPick",
+        "key": "ctrl+shift+q",
+        "mac": "cmd+shift+q"
+      },
+      {
+        "command": "agm.toggleAutoAccept",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "agm.refreshQuota",
+          "when": "view == agm.sidebar",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agm.openSettings",
+          "when": "view == agm.sidebar",
+          "group": "navigation@2"
+        }
+      ]
+    },
+    "configuration": [
+      {
+        "title": "AGM: Dashboard",
+        "properties": {
+          "agm.dashboard.gaugeStyle": {
+            "type": "string",
+            "default": "semi-arc",
+            "enum": [
+              "semi-arc",
+              "classic-donut"
+            ],
+            "description": "Visual style for quota gauges"
+          },
+          "agm.dashboard.viewMode": {
+            "type": "string",
+            "default": "groups",
+            "enum": [
+              "groups",
+              "models"
+            ],
+            "description": "Show by model groups or individual models"
+          },
+          "agm.dashboard.historyRange": {
+            "type": "number",
+            "default": 90,
+            "minimum": 10,
+            "maximum": 120,
+            "description": "Time range for usage chart in minutes"
+          },
+          "agm.dashboard.refreshRate": {
+            "type": "number",
+            "default": 90,
+            "minimum": 30,
+            "description": "Auto-refresh interval in seconds (minimum 30s)"
+          },
+          "agm.dashboard.uiScale": {
+            "type": "number",
+            "default": 1,
+            "minimum": 0.8,
+            "maximum": 2,
+            "description": "UI scale factor for sidebar elements"
+          },
+          "agm.dashboard.showUserInfoCard": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show user profile card in sidebar"
+          },
+          "agm.dashboard.showCreditsCard": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show credits usage card in sidebar"
+          }
+        }
+      },
+      {
+        "title": "AGM: Status Bar",
+        "properties": {
+          "agm.status.showQuota": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show quota in status bar"
+          },
+          "agm.status.showCache": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show cache size in status bar"
+          },
+          "agm.status.displayFormat": {
+            "type": "string",
+            "default": "percentage",
+            "enum": [
+              "percentage",
+              "resetTime",
+              "resetTimestamp",
+              "used",
+              "remaining"
+            ],
+            "description": "Status bar display format"
+          },
+          "agm.status.scope": {
+            "type": "string",
+            "default": "all",
+            "enum": [
+              "primary",
+              "all"
+            ],
+            "description": "Show only primary model or all model groups"
+          },
+          "agm.status.warningThreshold": {
+            "type": "number",
+            "default": 30,
+            "minimum": 5,
+            "maximum": 80,
+            "description": "Quota below this % shows yellow warning (5-80)"
+          },
+          "agm.status.criticalThreshold": {
+            "type": "number",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 50,
+            "description": "Quota below this % shows red danger alert (1-50)"
+          },
+          "agm.status.notificationsEnabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show notifications when quota drops below critical threshold"
+          }
+        }
+      },
+      {
+        "title": "AGM: Cache",
+        "properties": {
+          "agm.cache.autoClean": {
+            "type": "boolean",
+            "default": false,
+            "description": "Auto-clean old brain tasks when cache exceeds threshold"
+          },
+          "agm.cache.autoCleanKeepCount": {
+            "type": "number",
+            "default": 5,
+            "minimum": 1,
+            "maximum": 50,
+            "description": "Number of newest tasks to keep during auto-clean"
+          },
+          "agm.cache.scanInterval": {
+            "type": "number",
+            "default": 120,
+            "minimum": 30,
+            "maximum": 600,
+            "description": "Cache check interval in seconds"
+          },
+          "agm.cache.warningSize": {
+            "type": "number",
+            "default": 500,
+            "minimum": 100,
+            "description": "Cache warning size threshold in MB"
+          },
+          "agm.cache.hideEmptyFolders": {
+            "type": "boolean",
+            "default": false,
+            "description": "Hide empty folders in cache tree views"
+          }
+        }
+      },
+      {
+        "title": "AGM: System",
+        "properties": {
+          "agm.system.serverHost": {
+            "type": "string",
+            "default": "127.0.0.1",
+            "description": "Local language server host (always 127.0.0.1)"
+          },
+          "agm.system.apiPath": {
+            "type": "string",
+            "default": "/exa.language_server_pb.LanguageServerService/GetUserStatus",
+            "description": "API path for quota metrics"
+          },
+          "agm.system.debugMode": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable debug logging"
+          },
+          "agm.system.autoAccept": {
+            "type": "boolean",
+            "default": false,
+            "description": "Auto-accept agent commands and file edits"
+          },
+          "agm.system.autoAcceptInterval": {
+            "type": "number",
+            "default": 800,
+            "minimum": 200,
+            "maximum": 5000,
+            "description": "Auto-accept check interval in ms"
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "npm run build && npx @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "@types/ws": "^8.18.1",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
+}
