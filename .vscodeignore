@@ -5,6 +5,7 @@ node_modules/
 .vscode/
 .git/
 .gitignore
+.vsixignore
 
 # Build tools
 esbuild.js
