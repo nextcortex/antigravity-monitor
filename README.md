@@ -1,7 +1,7 @@
 # Antigravity Monitor
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.0-0078d4?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.0.2-0078d4?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-43a047?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/platform-Windows%20·%20macOS%20·%20Linux-8957e5?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/engine-vscode%20≥%201.90-007acc?style=flat-square" alt="Engine">
@@ -247,3 +247,4 @@ This project is licensed under the MIT License. See `LICENSE` for details.
 <p align="center">
   <img src="https://raw.githubusercontent.com/nextcortex/antigravity-monitor/main/assets/icon.png" alt="Antigravity Monitor Icon" width="128">
 </p>
+
