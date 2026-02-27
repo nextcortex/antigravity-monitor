@@ -10,6 +10,8 @@
 
 > **Zero network calls. Zero telemetry. Everything stays on your machine.**
 
+![Antigravity Monitor](https://raw.githubusercontent.com/nextcortex/antigravity-monitor/main/assets/nextcortex_antigravity-monitor.png)
+
 ---
 
 ## Features
